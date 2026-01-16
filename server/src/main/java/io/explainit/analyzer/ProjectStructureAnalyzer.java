@@ -1,0 +1,48 @@
+package io.explainit.analyzer;
+
+import io.explainit.dto.ProjectMetadata;
+import io.explainit.dto.ProjectStructure;
+import io.explainit.util.FileScanner;
+import java.nio.file.Path;
+
+public class ProjectStructureAnalyzer implements IProjectAnalyzer {
+    
+    @Override
+    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
+        ProjectStructure structure = new ProjectStructure();
+        
+        // Detect standard source directory
+        String sourceDir = "src/main/java";
+        if (projectRoot.resolve(sourceDir).toFile().exists()) {
+            structure.setSourceDirectory(sourceDir);
+        } else if (projectRoot.resolve("src").toFile().exists()) {
+            structure.setSourceDirectory("src");
+        } else {
+            structure.setSourceDirectory("unknown");
+        }
+        
+        // Detect resources directory
+        String resourcesDir = "src/main/resources";
+        if (projectRoot.resolve(resourcesDir).toFile().exists()) {
+            structure.setResourcesDirectory(resourcesDir);
+        } else {
+            structure.setResourcesDirectory("unknown");
+        }
+        
+        // Detect test directory
+        String testDir = "src/test/java";
+        if (projectRoot.resolve(testDir).toFile().exists()) {
+            structure.setTestDirectory(testDir);
+        } else if (projectRoot.resolve("test").toFile().exists()) {
+            structure.setTestDirectory("test");
+        } else {
+            structure.setTestDirectory("unknown");
+        }
+        
+
+        long javaClassCount = FileScanner.countFilesByExtension(projectRoot, "java");
+        structure.setCurrentClasses((int) javaClassCount);
+        
+        metadata.setProjectStructure(structure);
+    }
+}
