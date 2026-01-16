@@ -25,7 +25,6 @@ public class AnalysisController {
      * @param file The project ZIP file to analyze
      * @return Comprehensive project analysis
      */
-    
     @PostMapping(value = "/analyze", consumes = "multipart/form-data")
     public ResponseEntity<?> analyzeProject(
         @RequestParam("file") MultipartFile file
@@ -51,7 +50,24 @@ public class AnalysisController {
                 // Analyze project
                 ProjectMetadata metadata = projectAnalysisService.analyzeProject(extractedPath);
                 
-                return ResponseEntity.ok(metadata);
+                // Wrap in response object matching frontend expectations
+                Map<String, Object> response = new HashMap<>();
+                
+                // Create nested projectMetadata object
+                Map<String, Object> projectMetadata = new HashMap<>();
+                projectMetadata.put("projectType", metadata.getProjectType());
+                projectMetadata.put("detectedLanguages", metadata.getLanguages());
+                projectMetadata.put("detectedFrameworks", metadata.getFrameworks());
+                projectMetadata.put("summary", metadata.getSummary());
+                
+                response.put("projectMetadata", projectMetadata);
+                response.put("entryPoints", metadata.getEntryPoints());
+                response.put("configFiles", metadata.getConfigFiles());
+                response.put("apiRoutes", metadata.getApiRoutes());
+                response.put("buildInfo", metadata.getBuildInfo());
+                response.put("projectStructure", metadata.getProjectStructure());
+                
+                return ResponseEntity.ok(response);
             } finally {
                 ZipExtractor.deleteDirectory(extractedPath);
             }

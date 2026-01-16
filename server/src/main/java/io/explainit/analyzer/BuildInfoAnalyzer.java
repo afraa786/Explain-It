@@ -6,8 +6,14 @@ import io.explainit.util.FileScanner;
 import io.explainit.util.PomParser;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class BuildInfoAnalyzer implements IProjectAnalyzer {
+    
+    private static final Pattern DEPENDENCY_PATTERN = Pattern.compile(
+        "<artifactId>\\s*([^<]+)\\s*</artifactId>"
+    );
     
     @Override
     public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
@@ -31,6 +37,10 @@ public class BuildInfoAnalyzer implements IProjectAnalyzer {
             } else if (props.containsKey("maven.compiler.source")) {
                 buildInfo.setJavaVersion(props.get("maven.compiler.source"));
             }
+            
+            // Extract dependencies
+            List<String> dependencies = extractDependenciesFromPom(pomPath.get());
+            buildInfo.setDependencies(dependencies);
         }
         
         // Check for Gradle
@@ -52,6 +62,10 @@ public class BuildInfoAnalyzer implements IProjectAnalyzer {
                     }
                 }
             }
+            
+            // Extract dependencies from gradle
+            List<String> dependencies = extractDependenciesFromGradle(gradleContent);
+            buildInfo.setDependencies(dependencies);
         }
         
         // Set defaults if not found
@@ -66,5 +80,47 @@ public class BuildInfoAnalyzer implements IProjectAnalyzer {
         }
         
         metadata.setBuildInfo(buildInfo);
+    }
+    
+    private List<String> extractDependenciesFromPom(Path pomPath) throws Exception {
+        List<String> dependencies = new ArrayList<>();
+        String pomContent = FileScanner.readFileAsString(pomPath);
+        
+        // Simple regex to find artifact IDs
+        Matcher matcher = DEPENDENCY_PATTERN.matcher(pomContent);
+        Set<String> uniqueDeps = new LinkedHashSet<>();
+        
+        while (matcher.find() && uniqueDeps.size() < 50) {
+            String artifactId = matcher.group(1).trim();
+            if (!artifactId.isEmpty()) {
+                uniqueDeps.add(artifactId);
+            }
+        }
+        
+        dependencies.addAll(uniqueDeps);
+        return dependencies;
+    }
+    
+    private List<String> extractDependenciesFromGradle(String gradleContent) {
+        List<String> dependencies = new ArrayList<>();
+        Set<String> uniqueDeps = new LinkedHashSet<>();
+        
+        // Look for dependencies block
+        Pattern depPattern = Pattern.compile("(implementation|compile|compileOnly|testImplementation)\\s+['\\\"]([^'\\\"]+)['\\\"]");
+        Matcher matcher = depPattern.matcher(gradleContent);
+        
+        while (matcher.find() && uniqueDeps.size() < 50) {
+            String dependency = matcher.group(2).trim();
+            // Extract just the library name
+            String[] parts = dependency.split(":");
+            if (parts.length >= 2) {
+                uniqueDeps.add(parts[1]);
+            } else {
+                uniqueDeps.add(dependency);
+            }
+        }
+        
+        dependencies.addAll(uniqueDeps);
+        return dependencies;
     }
 }

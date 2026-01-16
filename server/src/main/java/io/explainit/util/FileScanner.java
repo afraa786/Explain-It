@@ -67,4 +67,32 @@ public class FileScanner {
                 .findFirst();
         }
     }
+    
+    public static long calculateTotalSize(Path rootPath) throws IOException {
+        try (Stream<Path> stream = Files.walk(rootPath)) {
+            return stream.filter(Files::isRegularFile)
+                .mapToLong(path -> {
+                    try {
+                        return Files.size(path);
+                    } catch (IOException e) {
+                        return 0L;
+                    }
+                })
+                .sum();
+        }
+    }
+    
+    public static long countDirectories(Path rootPath) throws IOException {
+        try (Stream<Path> stream = Files.walk(rootPath)) {
+            return stream.filter(Files::isDirectory)
+                .count();
+        }
+    }
+    
+    public static long countAllFiles(Path rootPath) throws IOException {
+        try (Stream<Path> stream = Files.walk(rootPath)) {
+            return stream.filter(Files::isRegularFile)
+                .count();
+        }
+    }
 }

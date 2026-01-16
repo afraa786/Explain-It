@@ -1,6 +1,8 @@
 package io.explainit.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BuildInfo {
     @JsonProperty("buildTool")
@@ -11,6 +13,9 @@ public class BuildInfo {
     
     @JsonProperty("springBootVersion")
     private String springBootVersion;
+    
+    @JsonProperty("dependencies")
+    private List<String> dependencies = new ArrayList<>();
 
     public BuildInfo() {
     }
@@ -43,5 +48,13 @@ public class BuildInfo {
 
     public void setSpringBootVersion(String springBootVersion) {
         this.springBootVersion = springBootVersion;
+    }
+    
+    public List<String> getDependencies() {
+        return dependencies;
+    }
+    
+    public void setDependencies(List<String> dependencies) {
+        this.dependencies = dependencies;
     }
 }

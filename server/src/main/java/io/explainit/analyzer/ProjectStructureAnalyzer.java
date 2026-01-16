@@ -39,9 +39,22 @@ public class ProjectStructureAnalyzer implements IProjectAnalyzer {
             structure.setTestDirectory("unknown");
         }
         
-
+        // Count files and calculate metrics
         long javaClassCount = FileScanner.countFilesByExtension(projectRoot, "java");
         structure.setCurrentClasses((int) javaClassCount);
+        
+        // Calculate total files, size, and directory count
+        long totalFiles = FileScanner.countAllFiles(projectRoot);
+        structure.setFileCount((int) totalFiles);
+        
+        long totalSizeBytes = FileScanner.calculateTotalSize(projectRoot);
+        double totalSizeMB = totalSizeBytes / (1024.0 * 1024.0);
+        structure.setTotalSizeMB(Math.round(totalSizeMB * 100.0) / 100.0);
+        
+        long directoryCount = FileScanner.countDirectories(projectRoot);
+        structure.setDirectories((int) directoryCount);
+        
+        structure.setRootPath(projectRoot.toString());
         
         metadata.setProjectStructure(structure);
     }

@@ -14,6 +14,18 @@ public class ProjectStructure {
     
     @JsonProperty("currentClasses")
     private int currentClasses;
+    
+    @JsonProperty("fileCount")
+    private int fileCount;
+    
+    @JsonProperty("totalSizeMB")
+    private double totalSizeMB;
+    
+    @JsonProperty("directories")
+    private int directories;
+    
+    @JsonProperty("rootPath")
+    private String rootPath;
 
     public ProjectStructure() {
     }
@@ -55,5 +67,37 @@ public class ProjectStructure {
 
     public void setCurrentClasses(int currentClasses) {
         this.currentClasses = currentClasses;
+    }
+    
+    public int getFileCount() {
+        return fileCount;
+    }
+    
+    public void setFileCount(int fileCount) {
+        this.fileCount = fileCount;
+    }
+    
+    public double getTotalSizeMB() {
+        return totalSizeMB;
+    }
+    
+    public void setTotalSizeMB(double totalSizeMB) {
+        this.totalSizeMB = totalSizeMB;
+    }
+    
+    public int getDirectories() {
+        return directories;
+    }
+    
+    public void setDirectories(int directories) {
+        this.directories = directories;
+    }
+    
+    public String getRootPath() {
+        return rootPath;
+    }
+    
+    public void setRootPath(String rootPath) {
+        this.rootPath = rootPath;
     }
 }
