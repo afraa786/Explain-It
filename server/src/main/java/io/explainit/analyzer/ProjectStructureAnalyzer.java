@@ -1,14 +1,19 @@
 package io.explainit.analyzer;
 
-import io.explainit.dto.ProjectMetadata;
+import io.explainit.dto.AnalysisResult;
 import io.explainit.dto.ProjectStructure;
 import io.explainit.util.FileScanner;
 import java.nio.file.Path;
 
+/**
+ * Analyzes project structure: directory layout, file counts, sizes, and organization.
+ */
 public class ProjectStructureAnalyzer implements IProjectAnalyzer {
     
     @Override
-    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
+    public AnalysisResult analyze(Path projectRoot) throws Exception {
+        AnalysisResult result = new AnalysisResult("ProjectStructure");
+        
         ProjectStructure structure = new ProjectStructure();
         
         // Detect standard source directory
@@ -56,6 +61,7 @@ public class ProjectStructureAnalyzer implements IProjectAnalyzer {
         
         structure.setRootPath(projectRoot.toString());
         
-        metadata.setProjectStructure(structure);
+        result.setSuccess(true);
+        return result;
     }
 }

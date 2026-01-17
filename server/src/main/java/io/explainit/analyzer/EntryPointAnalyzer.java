@@ -8,73 +8,100 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Detects and analyzes entry points with proper prioritization:
+ * @SpringBootApplication > main method > ApplicationRunner > CommandLineRunner
+ */
 public class EntryPointAnalyzer implements IProjectAnalyzer {
     
     private static final Pattern SPRING_BOOT_APP_PATTERN = Pattern.compile("@SpringBootApplication");
     private static final Pattern MAIN_METHOD_PATTERN = Pattern.compile("public\\s+static\\s+void\\s+main\\s*\\(\\s*String\\s*\\[\\s*\\]");
+    private static final Pattern APPLICATION_RUNNER_PATTERN = Pattern.compile("implements\\s+ApplicationRunner");
+    private static final Pattern COMMAND_LINE_RUNNER_PATTERN = Pattern.compile("implements\\s+CommandLineRunner");
     private static final Pattern CONTROLLER_PATTERN = Pattern.compile("@(RestController|Controller)");
     private static final Pattern REQUEST_MAPPING_PATTERN = Pattern.compile("@(GetMapping|PostMapping|PutMapping|DeleteMapping|RequestMapping)\\s*\\(\\s*[\"']([^\"']+)[\"']");
     private static final Pattern METHOD_PATTERN = Pattern.compile("public\\s+\\w+\\s+(\\w+)\\s*\\(");
     
     @Override
-    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
+    public AnalysisResult analyze(Path projectRoot) throws Exception {
+        EntryPointAnalysisResult result = new EntryPointAnalysisResult();
         List<EntryPoint> entryPoints = new ArrayList<>();
         
         List<Path> javaFiles = FileScanner.findFilesByExtension(projectRoot, "java");
         
-        // First, find Spring Boot main applications
+        // Priority 1: Find @SpringBootApplication with main method
+        EntryPoint primaryEntry = findPrimarySpringBootEntry(javaFiles);
+        if (primaryEntry != null) {
+            result.setPrimaryEntryPoint(primaryEntry.getClassName());
+            result.setEntryType("SPRING_BOOT");
+            entryPoints.add(primaryEntry);
+        }
+        
+        // Priority 2: Find regular main methods
+        if (primaryEntry == null) {
+            EntryPoint mainEntry = findMainMethodEntry(javaFiles);
+            if (mainEntry != null) {
+                result.setPrimaryEntryPoint(mainEntry.getClassName());
+                result.setEntryType("JAVA_MAIN");
+                entryPoints.add(mainEntry);
+            }
+        }
+        
+        // Priority 3: Find ApplicationRunner / CommandLineRunner implementations
+        findRunnerImplementations(javaFiles, entryPoints);
+        
+        // Also detect controller entry points
+        findControllerEntryPoints(javaFiles, entryPoints);
+        
+        result.setSecondaryEntryPoints(entryPoints.size() > 1 ? entryPoints.subList(1, entryPoints.size()) : new ArrayList<>());
+        result.setTotalEntryPoints(entryPoints.size());
+        result.setSuccess(true);
+        
+        return result;
+    }
+    
+    private EntryPoint findPrimarySpringBootEntry(List<Path> javaFiles) throws Exception {
         for (Path javaFile : javaFiles) {
             String content = FileScanner.readFileAsString(javaFile);
             
             if (SPRING_BOOT_APP_PATTERN.matcher(content).find() && 
                 MAIN_METHOD_PATTERN.matcher(content).find()) {
-                
-                String className = extractClassName(javaFile, content);
-                String packageName = extractPackageName(content);
-                String fullyQualifiedName = packageName.isEmpty() ? className : packageName + "." + className;
-                
-                String relativePath = javaFile.toString().replaceAll("\\\\", "/");
-                if (relativePath.contains("expo/")) {
-                    relativePath = relativePath.substring(relativePath.indexOf("expo/") + 5);
-                }
-                
-                EntryPoint ep = new EntryPoint(
-                    relativePath,
-                    fullyQualifiedName,
-                    "main(String[] args)",
-                    "Spring Boot Application"
-                );
-                entryPoints.add(ep);
+                return createEntryPoint(javaFile, content, "Spring Boot Application");
             }
         }
-        
-        // If no Spring Boot app found, look for regular main methods
-        if (entryPoints.isEmpty()) {
-            for (Path javaFile : javaFiles) {
-                String content = FileScanner.readFileAsString(javaFile);
-                
-                if (MAIN_METHOD_PATTERN.matcher(content).find()) {
-                    String className = extractClassName(javaFile, content);
-                    String packageName = extractPackageName(content);
-                    String fullyQualifiedName = packageName.isEmpty() ? className : packageName + "." + className;
-                    
-                    String relativePath = javaFile.toString().replaceAll("\\\\", "/");
-                    if (relativePath.contains("expo/")) {
-                        relativePath = relativePath.substring(relativePath.indexOf("expo/") + 5);
-                    }
-                    
-                    EntryPoint ep = new EntryPoint(
-                        relativePath,
-                        fullyQualifiedName,
-                        "main(String[] args)",
-                        "Java Application"
-                    );
+        return null;
+    }
+    
+    private EntryPoint findMainMethodEntry(List<Path> javaFiles) throws Exception {
+        for (Path javaFile : javaFiles) {
+            String content = FileScanner.readFileAsString(javaFile);
+            
+            if (MAIN_METHOD_PATTERN.matcher(content).find()) {
+                return createEntryPoint(javaFile, content, "Java Application");
+            }
+        }
+        return null;
+    }
+    
+    private void findRunnerImplementations(List<Path> javaFiles, List<EntryPoint> entryPoints) throws Exception {
+        for (Path javaFile : javaFiles) {
+            String content = FileScanner.readFileAsString(javaFile);
+            
+            if (APPLICATION_RUNNER_PATTERN.matcher(content).find()) {
+                EntryPoint ep = createEntryPoint(javaFile, content, "ApplicationRunner");
+                if (!entryPoints.stream().anyMatch(e -> e.getClassName().equals(ep.getClassName()))) {
+                    entryPoints.add(ep);
+                }
+            } else if (COMMAND_LINE_RUNNER_PATTERN.matcher(content).find()) {
+                EntryPoint ep = createEntryPoint(javaFile, content, "CommandLineRunner");
+                if (!entryPoints.stream().anyMatch(e -> e.getClassName().equals(ep.getClassName()))) {
                     entryPoints.add(ep);
                 }
             }
         }
-        
-        // Also detect REST controller entry points (request handlers)
+    }
+    
+    private void findControllerEntryPoints(List<Path> javaFiles, List<EntryPoint> entryPoints) throws Exception {
         for (Path javaFile : javaFiles) {
             String content = FileScanner.readFileAsString(javaFile);
             
@@ -96,12 +123,15 @@ public class EntryPointAnalyzer implements IProjectAnalyzer {
                     // Check if this method has a request mapping annotation
                     int methodStart = methodMatcher.start();
                     String beforeMethod = content.substring(Math.max(0, methodStart - 200), methodStart);
-                    if (REQUEST_MAPPING_PATTERN.matcher(beforeMethod).find()) {
+                    if (beforeMethod.contains("@GetMapping") || beforeMethod.contains("@PostMapping") ||
+                        beforeMethod.contains("@PutMapping") || beforeMethod.contains("@DeleteMapping") ||
+                        beforeMethod.contains("@RequestMapping")) {
+                        
                         EntryPoint ep = new EntryPoint(
                             relativePath,
                             fullyQualifiedName,
                             methodName + "()",
-                            "Spring REST Controller"
+                            "Spring REST Endpoint"
                         );
                         
                         // Only add if not already in list (avoid duplicates)
@@ -114,8 +144,24 @@ public class EntryPointAnalyzer implements IProjectAnalyzer {
                 }
             }
         }
+    }
+    
+    private EntryPoint createEntryPoint(Path javaFile, String content, String description) {
+        String className = extractClassName(javaFile, content);
+        String packageName = extractPackageName(content);
+        String fullyQualifiedName = packageName.isEmpty() ? className : packageName + "." + className;
         
-        metadata.setEntryPoints(entryPoints);
+        String relativePath = javaFile.toString().replaceAll("\\\\", "/");
+        if (relativePath.contains("expo/")) {
+            relativePath = relativePath.substring(relativePath.indexOf("expo/") + 5);
+        }
+        
+        return new EntryPoint(
+            relativePath,
+            fullyQualifiedName,
+            "main(String[] args)",
+            description
+        );
     }
     
     private String extractClassName(Path filePath, String content) {

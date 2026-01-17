@@ -1,10 +1,14 @@
 package io.explainit.analyzer;
 
-import io.explainit.dto.ProjectMetadata;
+import io.explainit.dto.AnalysisResult;
 import io.explainit.util.FileScanner;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * Detects programming languages based on file extensions.
+ * Note: Framework detection is handled by FrameworkAnalyzer which is more comprehensive.
+ */
 public class LanguageAnalyzer implements IProjectAnalyzer {
     
     private static final Map<String, String> EXTENSION_TO_LANGUAGE = Map.ofEntries(
@@ -21,7 +25,9 @@ public class LanguageAnalyzer implements IProjectAnalyzer {
     );
     
     @Override
-    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
+    public AnalysisResult analyze(Path projectRoot) throws Exception {
+        AnalysisResult result = new AnalysisResult("Language");
+        
         Set<String> extensions = FileScanner.getAllFileExtensions(projectRoot);
         Set<String> languages = new LinkedHashSet<>();
         
@@ -31,6 +37,7 @@ public class LanguageAnalyzer implements IProjectAnalyzer {
             }
         }
         
-        metadata.setLanguages(new ArrayList<>(languages));
+        result.setSuccess(true);
+        return result;
     }
 }

@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public class ProjectMetadata {
+    @JsonProperty("projectRootName")
+    private String projectRootName;
+    
     @JsonProperty("projectType")
     private String projectType;
     
@@ -28,8 +31,14 @@ public class ProjectMetadata {
     @JsonProperty("dataLayerHints")
     private List<String> dataLayerHints;
     
+    @JsonProperty("dataLayerDetections")
+    private List<DetectionResult> dataLayerDetections;
+    
     @JsonProperty("securityHints")
     private List<String> securityHints;
+    
+    @JsonProperty("securityDetections")
+    private List<DetectionResult> securityDetections;
     
     @JsonProperty("buildInfo")
     private BuildInfo buildInfo;
@@ -37,10 +46,24 @@ public class ProjectMetadata {
     @JsonProperty("projectStructure")
     private ProjectStructure projectStructure;
     
+    @JsonProperty("frameworkDetection")
+    private FrameworkDetectionResult frameworkDetection;
+    
+    @JsonProperty("projectSize")
+    private ProjectSizeInfo projectSize;
+    
     @JsonProperty("summary")
     private String summary;
 
     public ProjectMetadata() {
+    }
+
+    public String getProjectRootName() {
+        return projectRootName;
+    }
+
+    public void setProjectRootName(String projectRootName) {
+        this.projectRootName = projectRootName;
     }
 
     public String getProjectType() {
@@ -137,5 +160,37 @@ public class ProjectMetadata {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public List<DetectionResult> getDataLayerDetections() {
+        return dataLayerDetections;
+    }
+
+    public void setDataLayerDetections(List<DetectionResult> dataLayerDetections) {
+        this.dataLayerDetections = dataLayerDetections;
+    }
+
+    public List<DetectionResult> getSecurityDetections() {
+        return securityDetections;
+    }
+
+    public void setSecurityDetections(List<DetectionResult> securityDetections) {
+        this.securityDetections = securityDetections;
+    }
+
+    public FrameworkDetectionResult getFrameworkDetection() {
+        return frameworkDetection;
+    }
+
+    public void setFrameworkDetection(FrameworkDetectionResult frameworkDetection) {
+        this.frameworkDetection = frameworkDetection;
+    }
+
+    public ProjectSizeInfo getProjectSize() {
+        return projectSize;
+    }
+
+    public void setProjectSize(ProjectSizeInfo projectSize) {
+        this.projectSize = projectSize;
     }
 }

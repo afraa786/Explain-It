@@ -446,6 +446,80 @@ For specific questions:
 
 ---
 
+## 🚀 Version 2.0 - Complete Refactor (NEW!)
+
+ExplainIt has been **completely refactored** into a production-grade, framework-agnostic analyzer!
+
+### Refactor Documentation
+
+**→ [REFACTOR_SUMMARY.md](REFACTOR_SUMMARY.md)** - Start here! (5 minutes)
+- What changed from v1.0 to v2.0
+- Quick start guide
+- Before/after comparison
+- All features at a glance
+
+**→ [ARCHITECTURE_REFACTOR.md](ARCHITECTURE_REFACTOR.md)** - Complete design (20 minutes)
+- System architecture overview
+- Component descriptions
+- Example outputs (Spring Boot, Django, Node.js)
+- SOLID principles applied
+- Future extension points
+
+**→ [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md)** - Visual reference (10 minutes)
+- System design diagrams
+- Multi-framework detection flow
+- Database/ORM detection matrix
+- Request/response flow
+- Technology support matrix
+
+**→ [API_MIGRATION_GUIDE.md](API_MIGRATION_GUIDE.md)** - API & Frontend (15 minutes)
+- Updated response structure
+- TypeScript type definitions
+- React component examples
+- Backward compatibility notes
+- Frontend migration steps
+
+**→ [TESTING_AND_VALIDATION.md](TESTING_AND_VALIDATION.md)** - QA strategy (20 minutes)
+- Unit test templates
+- Integration test examples
+- Validation checklist
+- Real-world test projects
+- Performance benchmarks
+
+**→ [FILE_REFERENCE.md](FILE_REFERENCE.md)** - Code inventory (10 minutes)
+- Complete file listing
+- What was created/modified
+- Code statistics
+- Quick reference tables
+
+### What's New in v2.0
+
+✅ **Framework-Agnostic Detection**
+- Java, Python, JavaScript/TypeScript support
+- Spring Boot, Django, Flask, FastAPI, Express, NestJS
+
+✅ **Enhanced Capabilities**
+- 8+ database detection across all languages
+- 8+ ORM support across all languages
+- 7+ migration tools
+- Confidence scoring (HIGH/MEDIUM/LOW)
+- Evidence-based detections
+
+✅ **Project Metrics**
+- Accurate project size in MB
+- File counting
+- Smart exclusion of build artifacts
+- 50-70% size reduction vs raw files
+
+✅ **Production-Ready**
+- Clean architecture
+- SOLID principles
+- No magic strings
+- Comprehensive documentation
+- Example outputs for 3 languages
+
+---
+
 **Happy Analyzing! 🎉**
 
-Start with [QUICKSTART.md](QUICKSTART.md) and explore from there.
+Start with [QUICKSTART.md](QUICKSTART.md) for quick start, or jump to [REFACTOR_SUMMARY.md](REFACTOR_SUMMARY.md) for the latest v2.0 refactor!

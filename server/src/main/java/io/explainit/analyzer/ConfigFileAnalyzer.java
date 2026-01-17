@@ -1,50 +1,98 @@
 package io.explainit.analyzer;
 
-import io.explainit.dto.*;
+import io.explainit.dto.AnalysisResult;
+import io.explainit.dto.ConfigAnalysisResult;
+import io.explainit.dto.ConfigFile;
 import io.explainit.util.FileScanner;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * Classifies and scores configuration files by type and complexity.
+ */
 public class ConfigFileAnalyzer implements IProjectAnalyzer {
     
-    private static final Map<String, Map.Entry<String, String>> CONFIG_FILES = Map.ofEntries(
-        Map.entry("pom.xml", Map.entry("Maven Build Configuration", "Dependency management and build automation")),
-        Map.entry("build.gradle", Map.entry("Gradle Build Configuration", "Dependency management and build automation")),
-        Map.entry("application.properties", Map.entry("Spring Boot Configuration", "Application settings and properties")),
-        Map.entry("application.yml", Map.entry("Spring Boot Configuration (YAML)", "Application settings in YAML format")),
-        Map.entry("application.yaml", Map.entry("Spring Boot Configuration (YAML)", "Application settings in YAML format")),
-        Map.entry("settings.gradle", Map.entry("Gradle Settings", "Multi-project Gradle configuration")),
-        Map.entry("package.json", Map.entry("Node.js Configuration", "JavaScript/Node.js dependencies")),
-        Map.entry("requirements.txt", Map.entry("Python Dependencies", "Python package requirements")),
-        Map.entry(".env", Map.entry("Environment Variables", "Configuration from environment variables")),
-        Map.entry("docker-compose.yml", Map.entry("Docker Compose", "Multi-container application definition")),
-        Map.entry("Dockerfile", Map.entry("Docker Image Configuration", "Container image definition")),
-        Map.entry(".gitignore", Map.entry("Git Configuration", "Specifies files to ignore in version control"))
+    private static final Set<String> RUNTIME_CONFIGS = Set.of(
+        "application.properties", "application.yml", "application.yaml",
+        ".env", ".env.local", "config.json", "settings.json"
+    );
+    
+    private static final Set<String> SECURITY_CONFIGS = Set.of(
+        "security.properties", "keystore.jks", ".env", "secrets.yml",
+        "auth.config", "jwt.properties"
+    );
+    
+    private static final Set<String> BUILD_CONFIGS = Set.of(
+        "pom.xml", "build.gradle", "package.json", "build.properties",
+        "gradle.properties", "settings.gradle"
+    );
+    
+    private static final Set<String> INFRA_CONFIGS = Set.of(
+        "docker-compose.yml", "Dockerfile", "kubernetes.yml", "docker-compose.yaml",
+        "k8s.yml", "terraform.tf", ".github"
     );
     
     @Override
-    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
-        List<ConfigFile> configFiles = new ArrayList<>();
+    public AnalysisResult analyze(Path projectRoot) throws Exception {
+        ConfigAnalysisResult result = new ConfigAnalysisResult();
         
-        for (Map.Entry<String, Map.Entry<String, String>> entry : CONFIG_FILES.entrySet()) {
-            String filename = entry.getKey();
+        List<ConfigFile> runtimeConfigs = new ArrayList<>();
+        List<ConfigFile> securityConfigs = new ArrayList<>();
+        List<ConfigFile> buildConfigs = new ArrayList<>();
+        List<ConfigFile> infraConfigs = new ArrayList<>();
+        
+        // Scan for configuration files
+        for (String filename : RUNTIME_CONFIGS) {
             Optional<Path> found = FileScanner.findFile(projectRoot, filename);
-            
             if (found.isPresent()) {
-                String relativePath = found.get().toString().replaceAll("\\\\", "/");
-                if (relativePath.contains("expo/")) {
-                    relativePath = relativePath.substring(relativePath.indexOf("expo/") + 5);
-                }
-                
-                ConfigFile cf = new ConfigFile(
-                    relativePath,
-                    entry.getValue().getKey(),
-                    entry.getValue().getValue()
-                );
-                configFiles.add(cf);
+                runtimeConfigs.add(new ConfigFile(filename, found.get().toString(), "Runtime"));
             }
         }
         
-        metadata.setConfigFiles(configFiles);
+        for (String filename : SECURITY_CONFIGS) {
+            Optional<Path> found = FileScanner.findFile(projectRoot, filename);
+            if (found.isPresent() && !runtimeConfigs.stream().anyMatch(c -> c.getFilename().equals(filename))) {
+                securityConfigs.add(new ConfigFile(filename, found.get().toString(), "Security"));
+            }
+        }
+        
+        for (String filename : BUILD_CONFIGS) {
+            Optional<Path> found = FileScanner.findFile(projectRoot, filename);
+            if (found.isPresent()) {
+                buildConfigs.add(new ConfigFile(filename, found.get().toString(), "Build"));
+            }
+        }
+        
+        for (String filename : INFRA_CONFIGS) {
+            Optional<Path> found = FileScanner.findFile(projectRoot, filename);
+            if (found.isPresent()) {
+                infraConfigs.add(new ConfigFile(filename, found.get().toString(), "Infrastructure"));
+            }
+        }
+        
+        result.setRuntimeConfigs(runtimeConfigs);
+        result.setSecurityConfigs(securityConfigs);
+        result.setBuildConfigs(buildConfigs);
+        result.setInfrastructureConfigs(infraConfigs);
+        
+        int total = runtimeConfigs.size() + securityConfigs.size() + buildConfigs.size() + infraConfigs.size();
+        result.setTotalConfigFiles(total);
+        
+        // Score complexity
+        String complexity = scoreComplexity(total, infraConfigs.size());
+        result.setConfigComplexity(complexity);
+        
+        result.setSuccess(true);
+        return result;
+    }
+    
+    private String scoreComplexity(int totalConfigs, int infraConfigs) {
+        if (totalConfigs >= 8 || infraConfigs > 2) {
+            return "HIGH";
+        } else if (totalConfigs >= 4) {
+            return "MEDIUM";
+        } else {
+            return "LOW";
+        }
     }
 }

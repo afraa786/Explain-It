@@ -1,14 +1,18 @@
 package io.explainit.analyzer;
 
-import io.explainit.dto.BuildInfo;
-import io.explainit.dto.ProjectMetadata;
+import io.explainit.dto.AnalysisResult;
+import io.explainit.dto.BuildAnalysisResult;
 import io.explainit.util.FileScanner;
 import io.explainit.util.PomParser;
+import io.explainit.util.ProjectSizeCalculator;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Analyzes build configuration, project size, dependencies, and multi-module setup.
+ */
 public class BuildInfoAnalyzer implements IProjectAnalyzer {
     
     private static final Pattern DEPENDENCY_PATTERN = Pattern.compile(
@@ -16,111 +20,137 @@ public class BuildInfoAnalyzer implements IProjectAnalyzer {
     );
     
     @Override
-    public void analyze(Path projectRoot, ProjectMetadata metadata) throws Exception {
-        BuildInfo buildInfo = new BuildInfo();
+    public AnalysisResult analyze(Path projectRoot) throws Exception {
+        BuildAnalysisResult result = new BuildAnalysisResult();
         
+        // Detect build tool
+        detectBuildTool(projectRoot, result);
+        
+        // Calculate project size
+        long[] sizeData = ProjectSizeCalculator.calculateProjectSize(projectRoot);
+        result.setProjectSizeKB(sizeData[0] / 1024);
+        result.setProjectSizeMB(ProjectSizeCalculator.bytesToMB(sizeData[0]));
+        result.setTotalFileCount(sizeData[1]);
+        
+        // Count dependencies
+        result.setDependencyCount(countDependencies(projectRoot));
+        
+        // Detect multi-module
+        result.setMultiModule(isMultiModule(projectRoot));
+        if (result.isMultiModule()) {
+            result.setModuleCount(countModules(projectRoot));
+        }
+        
+        result.setSuccess(true);
+        return result;
+    }
+    
+    private void detectBuildTool(Path projectRoot, BuildAnalysisResult result) throws Exception {
         // Check for Maven
         Optional<Path> pomPath = FileScanner.findFile(projectRoot, "pom.xml");
         if (pomPath.isPresent()) {
-            buildInfo.setBuildTool("Maven");
+            result.setBuildTool("Maven");
             
-            // Extract Spring Boot version
-            String sbVersion = PomParser.getSpringBootVersion(pomPath.get());
-            if (!sbVersion.isEmpty()) {
-                buildInfo.setSpringBootVersion(sbVersion);
-            }
-            
-            // Extract Java version
-            Map<String, String> props = PomParser.parsePomProperties(pomPath.get());
-            if (props.containsKey("java.version")) {
-                buildInfo.setJavaVersion(props.get("java.version"));
-            } else if (props.containsKey("maven.compiler.source")) {
-                buildInfo.setJavaVersion(props.get("maven.compiler.source"));
-            }
-            
-            // Extract dependencies
-            List<String> dependencies = extractDependenciesFromPom(pomPath.get());
-            buildInfo.setDependencies(dependencies);
+            String javaVersion = PomParser.parsePomProperties(pomPath.get())
+                .getOrDefault("java.version", 
+                    PomParser.parsePomProperties(pomPath.get())
+                        .getOrDefault("maven.compiler.source", "Unknown"));
+            result.setJavaVersion(javaVersion);
+            return;
         }
         
         // Check for Gradle
         Optional<Path> gradlePath = FileScanner.findFile(projectRoot, "build.gradle");
         if (gradlePath.isPresent()) {
-            buildInfo.setBuildTool("Gradle");
+            result.setBuildTool("Gradle");
             
             String gradleContent = FileScanner.readFileAsString(gradlePath.get());
-            
-            // Try to extract Java version
             if (gradleContent.contains("sourceCompatibility")) {
                 String[] lines = gradleContent.split("\n");
                 for (String line : lines) {
                     if (line.contains("sourceCompatibility")) {
                         String[] parts = line.split("=");
                         if (parts.length > 1) {
-                            buildInfo.setJavaVersion(parts[1].trim().replaceAll("['\"]", ""));
+                            result.setJavaVersion(parts[1].trim().replaceAll("['\"]", ""));
                         }
                     }
                 }
             }
-            
-            // Extract dependencies from gradle
-            List<String> dependencies = extractDependenciesFromGradle(gradleContent);
-            buildInfo.setDependencies(dependencies);
+            return;
         }
         
-        // Set defaults if not found
-        if (buildInfo.getBuildTool() == null || buildInfo.getBuildTool().isEmpty()) {
-            buildInfo.setBuildTool("Unknown");
-        }
-        if (buildInfo.getJavaVersion() == null || buildInfo.getJavaVersion().isEmpty()) {
-            buildInfo.setJavaVersion("Unknown");
-        }
-        if (buildInfo.getSpringBootVersion() == null || buildInfo.getSpringBootVersion().isEmpty()) {
-            buildInfo.setSpringBootVersion("Unknown");
+        // Check for npm/yarn
+        Optional<Path> packageJsonPath = FileScanner.findFile(projectRoot, "package.json");
+        if (packageJsonPath.isPresent()) {
+            result.setBuildTool("npm");
+            result.setLanguageVersion("Node.js");
+            return;
         }
         
-        metadata.setBuildInfo(buildInfo);
+        result.setBuildTool("Unknown");
     }
     
-    private List<String> extractDependenciesFromPom(Path pomPath) throws Exception {
-        List<String> dependencies = new ArrayList<>();
-        String pomContent = FileScanner.readFileAsString(pomPath);
+    private int countDependencies(Path projectRoot) throws Exception {
+        Set<String> dependencies = new HashSet<>();
         
-        // Simple regex to find artifact IDs
-        Matcher matcher = DEPENDENCY_PATTERN.matcher(pomContent);
-        Set<String> uniqueDeps = new LinkedHashSet<>();
-        
-        while (matcher.find() && uniqueDeps.size() < 50) {
-            String artifactId = matcher.group(1).trim();
-            if (!artifactId.isEmpty()) {
-                uniqueDeps.add(artifactId);
+        // Maven dependencies
+        Optional<Path> pomPath = FileScanner.findFile(projectRoot, "pom.xml");
+        if (pomPath.isPresent()) {
+            String pomContent = FileScanner.readFileAsString(pomPath.get());
+            Matcher matcher = DEPENDENCY_PATTERN.matcher(pomContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(1).trim());
             }
         }
         
-        dependencies.addAll(uniqueDeps);
-        return dependencies;
-    }
-    
-    private List<String> extractDependenciesFromGradle(String gradleContent) {
-        List<String> dependencies = new ArrayList<>();
-        Set<String> uniqueDeps = new LinkedHashSet<>();
-        
-        // Look for dependencies block
-        Pattern depPattern = Pattern.compile("(implementation|compile|compileOnly|testImplementation)\\s+['\\\"]([^'\\\"]+)['\\\"]");
-        Matcher matcher = depPattern.matcher(gradleContent);
-        
-        while (matcher.find() && uniqueDeps.size() < 50) {
-            String dependency = matcher.group(2).trim();
-            // Extract just the library name
-            String[] parts = dependency.split(":");
-            if (parts.length >= 2) {
-                uniqueDeps.add(parts[1]);
-            } else {
-                uniqueDeps.add(dependency);
+        // Gradle dependencies
+        Optional<Path> gradlePath = FileScanner.findFile(projectRoot, "build.gradle");
+        if (gradlePath.isPresent()) {
+            String gradleContent = FileScanner.readFileAsString(gradlePath.get());
+            Pattern depPattern = Pattern.compile("(implementation|compile|compileOnly|testImplementation)\\s+['\\\"]([^'\\\"]+)['\\\"]");
+            Matcher matcher = depPattern.matcher(gradleContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(2).trim());
             }
         }
         
-        dependencies.addAll(uniqueDeps);
-        return dependencies;
+        // npm dependencies
+        Optional<Path> packageJsonPath = FileScanner.findFile(projectRoot, "package.json");
+        if (packageJsonPath.isPresent()) {
+            String pkgContent = FileScanner.readFileAsString(packageJsonPath.get());
+            Pattern depPattern = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]+)\"");
+            Matcher matcher = depPattern.matcher(pkgContent);
+            while (matcher.find()) {
+                if (!matcher.group(1).equals("version") && !matcher.group(1).equals("name")) {
+                    dependencies.add(matcher.group(1));
+                }
+            }
+        }
+        
+        return dependencies.size();
+    }
+    
+    private boolean isMultiModule(Path projectRoot) throws Exception {
+        Optional<Path> pomPath = FileScanner.findFile(projectRoot, "pom.xml");
+        if (pomPath.isPresent()) {
+            String pomContent = FileScanner.readFileAsString(pomPath.get());
+            return pomContent.contains("<modules>") && pomContent.contains("<module>");
+        }
+        return false;
+    }
+    
+    private int countModules(Path projectRoot) throws Exception {
+        Optional<Path> pomPath = FileScanner.findFile(projectRoot, "pom.xml");
+        if (pomPath.isPresent()) {
+            String pomContent = FileScanner.readFileAsString(pomPath.get());
+            Pattern modulePattern = Pattern.compile("<module>([^<]+)</module>");
+            Matcher matcher = modulePattern.matcher(pomContent);
+            int count = 0;
+            while (matcher.find()) {
+                count++;
+            }
+            return count;
+        }
+        return 0;
     }
 }
