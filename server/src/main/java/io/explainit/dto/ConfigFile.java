@@ -1,14 +1,16 @@
 package io.explainit.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ConfigFile {
+
     @JsonProperty("file")
     private String file;
-    
+
     @JsonProperty("type")
     private String type;
-    
+
     @JsonProperty("purpose")
     private String purpose;
 
@@ -21,27 +23,23 @@ public class ConfigFile {
         this.purpose = purpose;
     }
 
+    // ===== EXISTING GETTERS =====
+
     public String getFile() {
         return file;
-    }
-
-    public void setFile(String file) {
-        this.file = file;
     }
 
     public String getType() {
         return type;
     }
 
-    public void setType(String type) {
-        this.type = type;
-    }
-
     public String getPurpose() {
         return purpose;
     }
 
-    public void setPurpose(String purpose) {
-        this.purpose = purpose;
+
+    @JsonIgnore
+    public String getFilename() {
+        return file;
     }
 }
