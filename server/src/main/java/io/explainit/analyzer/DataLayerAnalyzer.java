@@ -10,10 +10,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * Detects databases, ORMs, migrations, and connection pooling.
- * Focused on data layer technologies across all languages.
- */
 public class DataLayerAnalyzer implements IProjectAnalyzer {
     
     // Database detection patterns

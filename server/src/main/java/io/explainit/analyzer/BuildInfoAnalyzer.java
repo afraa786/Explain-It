@@ -126,7 +126,100 @@ public class BuildInfoAnalyzer implements IProjectAnalyzer {
                 }
             }
         }
-        
+
+        Optional<Path> yarnLockPath = FileScanner.findFile(projectRoot, "yarn.lock");
+        if (yarnLockPath.isPresent()) {
+            String yarnContent = FileScanner.readFileAsString(yarnLockPath.get());
+            Pattern depPattern = Pattern.compile("^([^@\\s]+)@");
+            Matcher matcher = depPattern.matcher(yarnContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(1).trim());
+            }
+        }
+
+        Optional<Path> pipfilePath = FileScanner.findFile(projectRoot, "Pipfile");
+        if (pipfilePath.isPresent()) {
+            String pipfileContent = FileScanner.readFileAsString(pipfilePath.get());
+            Pattern depPattern = Pattern.compile("^(\\S+)\\s*=\\s*\"([^\"]+)\"", Pattern.MULTILINE);
+            Matcher matcher = depPattern.matcher(pipfileContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(1).trim());
+            }
+        }
+
+        Optional<Path> requirementsPath = FileScanner.findFile(projectRoot, "requirements.txt");
+        if (requirementsPath.isPresent()) {
+            String requirementsContent = FileScanner.readFileAsString(requirementsPath.get());
+            String[] lines = requirementsContent.split("\n");
+            for (String line : lines) {
+                line = line.trim();
+                if (!line.isEmpty() && !line.startsWith("#")) {
+                    dependencies.add(line.split("==")[0].trim());
+                }
+            }
+        }
+
+        Optional<Path> setupPyPath = FileScanner.findFile(projectRoot, "setup.py");
+        if (setupPyPath.isPresent()) {
+            String setupContent = FileScanner.readFileAsString(setupPyPath.get());
+            Pattern depPattern = Pattern.compile("install_requires\\s*=\\s*\\[(.*?)\\]", Pattern.DOTALL);
+            Matcher matcher = depPattern.matcher(setupContent);
+            if (matcher.find()) {
+                String depsBlock = matcher.group(1);
+                Pattern singleDepPattern = Pattern.compile("'([^']+)'");
+                Matcher singleMatcher = singleDepPattern.matcher(depsBlock);
+                while (singleMatcher.find()) {
+                    dependencies.add(singleMatcher.group(1).trim());
+                }
+            }
+        }
+
+        Optional<Path> cargoTomlPath = FileScanner.findFile(projectRoot, "Cargo.toml");
+        if (cargoTomlPath.isPresent()) {
+            String cargoContent = FileScanner.readFileAsString(cargoTomlPath.get());
+            Pattern depPattern = Pattern.compile("^([^=\\s]+)\\s*=\\s*\"([^\"]+)\"", Pattern.MULTILINE);
+            Matcher matcher = depPattern.matcher(cargoContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(1).trim());
+            }
+        }
+
+        Optional<Path> buildGradleKtsPath = FileScanner.findFile(projectRoot, "build.gradle.kts");
+
+        if (buildGradleKtsPath.isPresent()) {
+            String gradleKtsContent = FileScanner.readFileAsString(buildGradleKtsPath.get());
+            Pattern depPattern = Pattern.compile("(implementation|compile|compileOnly|testImplementation)\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*\\)");
+            Matcher matcher = depPattern.matcher(gradleKtsContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(2).trim());
+            }
+        }
+
+        Optional<Path> buildSbtPath = FileScanner.findFile(projectRoot, "build.sbt");   
+        if (buildSbtPath.isPresent()) {
+            String buildSbtContent = FileScanner.readFileAsString(buildSbtPath.get());
+            Pattern depPattern = Pattern.compile("libraryDependencies\\s*\\+?=\\s*\\([^)]*\\)");
+            Matcher matcher = depPattern.matcher(buildSbtContent);
+            while (matcher.find()) {
+                String depLine = matcher.group(0);
+                Pattern singleDepPattern = Pattern.compile("'([^']+)'");
+                Matcher singleMatcher = singleDepPattern.matcher(depLine);
+                while (singleMatcher.find()) {
+                    dependencies.add(singleMatcher.group(1).trim());
+                }
+            }
+        }
+
+        Optional<Path> gemfilePath = FileScanner.findFile(projectRoot, "Gemfile");
+        if (gemfilePath.isPresent()) {
+            String gemfileContent = FileScanner.readFileAsString(gemfilePath.get());
+            Pattern depPattern = Pattern.compile("gem\\s+['\\\"]([^'\\\"]+)['\\\"]");
+            Matcher matcher = depPattern.matcher(gemfileContent);
+            while (matcher.find()) {
+                dependencies.add(matcher.group(1).trim());
+            }
+        }
+
         return dependencies.size();
     }
     
